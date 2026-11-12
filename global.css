@@ -1,0 +1,11 @@
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css";
+@import "nativewind/theme";
+
+@theme {
+  --color-marca-azul: #176b70;
+  --color-marca-coral: #f47b63;
+  --color-marca-tinta: #17343a;
+  --color-marca-menta: #65bfae;
+}

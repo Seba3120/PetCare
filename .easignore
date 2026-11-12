@@ -1,0 +1,14 @@
+node_modules/
+.expo/
+.git/
+.vscode/
+.claude/
+dist/
+web-build/
+android/
+ios/
+supabase/
+*.zip
+*.apk
+*.aab
+.env
