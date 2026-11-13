@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { BotonPrincipal } from '@/componentes/boton-principal';
+import { CortinaEstado } from '@/componentes/cortina-estado';
 import { EncabezadoPantalla } from '@/componentes/encabezado-pantalla';
 import { EstadoVacio } from '@/componentes/estado-vacio';
 import { FilaRegistro } from '@/componentes/fila-registro';
@@ -123,6 +124,7 @@ export default function PantallaSalud() {
 
   return (
     <View style={estilos.pantalla}>
+      <CortinaEstado />
       <ScrollView contentContainerStyle={estilos.contenido} showsVerticalScrollIndicator={false}>
         <EncabezadoPantalla sobretitulo="SALUD" titulo="Salud" subtitulo="Vacunas, indicadores y tratamientos de tu mascota." />
         <View style={estilos.filtros}>

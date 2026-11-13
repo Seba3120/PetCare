@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { BotonPrincipal } from '@/componentes/boton-principal';
+import { CortinaEstado } from '@/componentes/cortina-estado';
 import { EncabezadoPantalla } from '@/componentes/encabezado-pantalla';
 import { EstadoVacio } from '@/componentes/estado-vacio';
 import { FilaRegistro } from '@/componentes/fila-registro';
@@ -63,13 +64,14 @@ export default function PantallaAgenda() {
 
   return (
     <View style={estilos.pantalla}>
+      <CortinaEstado />
       <ScrollView contentContainerStyle={estilos.contenido} showsVerticalScrollIndicator={false}>
         <EncabezadoPantalla sobretitulo="AGENDA" titulo="Agenda" subtitulo="Controles veterinarios y recordatorios con aviso." />
         <View style={estilos.selector}>
           <SelectorMascota />
         </View>
 
-        {!esVeterinario && (
+        {!esVeterinario && notificacionesDisponibles && (
           <>
         <View style={estilos.tarjetaNotificaciones}>
           <View style={estilos.iconoNotificaciones}>
@@ -78,15 +80,13 @@ export default function PantallaAgenda() {
           <View style={estilos.textoNotificaciones}>
             <TextoTema tipo="seminegrita" style={estilos.tituloNotificaciones}>Notificaciones</TextoTema>
             <TextoTema style={estilos.descripcionNotificaciones}>
-              {!notificacionesDisponibles
-                ? 'No disponibles en Expo Go. Funcionan en la app instalada (APK).'
-                : permiso
-                  ? 'Activadas: recibirás avisos de controles, vacunas y medicamentos.'
-                  : 'Desactivadas: actívalas para recibir avisos en tu teléfono.'}
+              {permiso
+                ? 'Activadas: recibirás avisos de controles, vacunas y medicamentos.'
+                : 'Desactivadas: actívalas para recibir avisos en tu teléfono.'}
             </TextoTema>
           </View>
         </View>
-        {notificacionesDisponibles && !permiso && <BotonPrincipal texto="Activar notificaciones" variante="contorno" alPresionar={solicitarNotificaciones} />}
+        {!permiso && <BotonPrincipal texto="Activar notificaciones" variante="contorno" alPresionar={solicitarNotificaciones} />}
           </>
         )}
 

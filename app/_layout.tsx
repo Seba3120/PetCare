@@ -1,10 +1,11 @@
+import '@/global.css';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 import 'react-native-reanimated';
-import '@/global.css';
 
+import { PantallaCarga } from '@/componentes/pantalla-carga';
 import { TextoTema } from '@/componentes/texto-tema';
 import { Colores } from '@/constantes/tema';
 import { ProveedorPetcare, usarPetcare } from '@/contextos/contexto-petcare';
@@ -36,11 +37,7 @@ function NavegacionRaiz() {
   }
 
   if (cargando) {
-    return (
-      <View style={estiloCentrado}>
-        <ActivityIndicator size="large" color={Colores.marca.azul} />
-      </View>
-    );
+    return <PantallaCarga />;
   }
 
   return (

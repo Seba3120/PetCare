@@ -2,6 +2,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BotonPrincipal } from '@/componentes/boton-principal';
 import { CampoTexto } from '@/componentes/campo-texto';
@@ -13,6 +14,7 @@ import { traducirError } from '@/utilidades/errores';
 
 export default function PantallaEscanear() {
   const router = useRouter();
+  const { top } = useSafeAreaInsets();
   const { vincularPorCodigo } = usarPetcare();
   const [permiso, solicitarPermiso] = useCameraPermissions();
   const [procesando, setProcesando] = useState(false);
@@ -35,7 +37,7 @@ export default function PantallaEscanear() {
   };
 
   return (
-    <ScrollView contentContainerStyle={estilos.contenido} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={[estilos.contenido, { paddingTop: top + 24 }]} keyboardShouldPersistTaps="handled">
       <TextoTema tipo="subtitulo" style={estilos.titulo}>Vincular una mascota</TextoTema>
       <TextoTema style={estilos.subtitulo}>
         Escanea el código QR que te muestra el tutor para acceder a la ficha y poder actualizarla.

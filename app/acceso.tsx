@@ -10,7 +10,7 @@ import { Colores } from '@/constantes/tema';
 import { usarPetcare } from '@/contextos/contexto-petcare';
 
 export default function PantallaAcceso() {
-  const { iniciarSesion } = usarPetcare();
+  const { iniciarSesion, errorInicio } = usarPetcare();
   const [correo, setCorreo] = useState('');
   const [clave, setClave] = useState('');
   const [error, setError] = useState('');
@@ -38,7 +38,7 @@ export default function PantallaAcceso() {
         autoCorrect={false}
       />
       <CampoTexto etiqueta="Contraseña" value={clave} onChangeText={setClave} secureTextEntry autoCapitalize="none" />
-      {error !== '' && <TextoTema style={estilos.error}>{error}</TextoTema>}
+      {(error || errorInicio) !== '' && <TextoTema style={estilos.error}>{error || errorInicio}</TextoTema>}
       <BotonPrincipal texto={enviando ? 'Ingresando...' : 'Iniciar sesión'} alPresionar={entrar} deshabilitado={enviando} />
       <View style={estilos.pie}>
         <TextoTema style={estilos.textoPie}>¿Aún no tienes cuenta? </TextoTema>

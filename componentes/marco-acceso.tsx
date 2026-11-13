@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
+import { CortinaEstado } from '@/componentes/cortina-estado';
 import { TextoTema } from '@/componentes/texto-tema';
 import { Colores } from '@/constantes/tema';
 
@@ -13,6 +14,7 @@ type Propiedades = {
 export function MarcoAcceso({ titulo, subtitulo, children }: Propiedades) {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={estilos.pantalla}>
+      <CortinaEstado />
       <ScrollView contentContainerStyle={estilos.contenido} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={estilos.marca}>
           <View style={estilos.icono}>

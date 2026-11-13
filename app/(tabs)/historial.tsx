@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { BotonPrincipal } from '@/componentes/boton-principal';
+import { CortinaEstado } from '@/componentes/cortina-estado';
 import { EncabezadoPantalla } from '@/componentes/encabezado-pantalla';
 import { EstadoVacio } from '@/componentes/estado-vacio';
 import { FiltroChips } from '@/componentes/filtro-chips';
@@ -63,6 +64,7 @@ export default function PantallaHistorial() {
 
   return (
     <View style={estilos.pantalla}>
+      <CortinaEstado />
       <ScrollView contentContainerStyle={estilos.contenido} showsVerticalScrollIndicator={false}>
         <EncabezadoPantalla
           sobretitulo="BIENESTAR Y SALUD"

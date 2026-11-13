@@ -5,6 +5,7 @@ import { Alert, Modal, Pressable, ScrollView, Share, StyleSheet, useWindowDimens
 
 import { AvatarMascota } from '@/componentes/avatar-mascota';
 import { BotonPrincipal } from '@/componentes/boton-principal';
+import { CortinaEstado } from '@/componentes/cortina-estado';
 import { FilaRegistro } from '@/componentes/fila-registro';
 import { ModalMascota } from '@/componentes/modal-mascota';
 import { ModalQr } from '@/componentes/modal-qr';
@@ -123,6 +124,7 @@ export default function PantallaInicio() {
 
   return (
     <View style={estilos.pantalla}>
+      <CortinaEstado />
       <ScrollView contentContainerStyle={[estilos.contenido, width >= 900 && estilos.contenidoAncho]} showsVerticalScrollIndicator={false}>
         <View style={estilos.barraSuperior}>
           <View>

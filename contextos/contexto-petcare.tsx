@@ -2,8 +2,8 @@ import type { Session } from '@supabase/supabase-js';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Alert, AppState } from 'react-native';
 
-import * as repositorio from '@/servicios/repositorio';
 import { cancelarTodas, pedirPermiso, sincronizarNotificaciones } from '@/servicios/notificaciones';
+import * as repositorio from '@/servicios/repositorio';
 import { supabase } from '@/servicios/supabase';
 import type {
   DatosControl,
@@ -31,7 +31,17 @@ const TABLAS_OBSERVADAS = [
   'acceso_veterinarios',
 ];
 
-const FORMATO_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const FORMATO_CORREO = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
+const CARACTERES_NO_ASCII = /[^\u0020-\u007E]/;
+
+function conLimite<T>(promesa: Promise<T>, milisegundos: number): Promise<T> {
+  return Promise.race([
+    promesa,
+    new Promise<T>((_, rechazar) => {
+      setTimeout(() => rechazar(new Error('Tiempo de espera agotado. Revisa tu conexión a internet.')), milisegundos);
+    }),
+  ]);
+}
 
 function normalizarDatos(datos: DatosMascota): DatosMascota {
   return {
@@ -46,6 +56,7 @@ function normalizarDatos(datos: DatosMascota): DatosMascota {
 
 type ValorContextoPetcare = {
   cargando: boolean;
+  errorInicio: string;
   usuario: Usuario | null;
   iniciarSesion: (correo: string, clave: string) => Promise<void>;
   registrarse: (nombre: string, correo: string, clave: string, rol: Rol, clinica: string) => Promise<void>;
@@ -79,6 +90,7 @@ const ContextoPetcare = createContext<ValorContextoPetcare | null>(null);
 
 export function ProveedorPetcare({ children }: { children: ReactNode }) {
   const [cargando, setCargando] = useState(true);
+  const [errorInicio, setErrorInicio] = useState('');
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [mascotas, setMascotas] = useState<Mascota[]>([]);
   const [idSeleccionado, setIdSeleccionado] = useState<string | null>(null);
@@ -131,15 +143,23 @@ export function ProveedorPetcare({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    const salvavidas = setTimeout(() => {
+      setErrorInicio('No pudimos conectar con el servidor. Revisa tu conexión a internet e inténtalo de nuevo.');
+      setCargando(false);
+    }, 20000);
+
     const restaurarSesion = async () => {
       try {
-        const { data } = await supabase.auth.getSession();
+        const { data } = await conLimite(supabase.auth.getSession(), 8000);
         if (data.session) {
-          await abrirSesion(data.session);
+          await conLimite(abrirSesion(data.session), 15000);
         }
-      } catch {
+      } catch (fallo) {
+        const motivo = fallo instanceof Error ? traducirError(fallo.message) : 'No se pudo restaurar la sesión.';
+        setErrorInicio(motivo);
         limpiar();
       } finally {
+        clearTimeout(salvavidas);
         setCargando(false);
       }
     };
@@ -152,7 +172,10 @@ export function ProveedorPetcare({ children }: { children: ReactNode }) {
       }
     });
 
-    return () => suscripcion.subscription.unsubscribe();
+    return () => {
+      clearTimeout(salvavidas);
+      suscripcion.subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -193,8 +216,11 @@ export function ProveedorPetcare({ children }: { children: ReactNode }) {
     if (rol === 'veterinario' && !clinica.trim()) {
       throw new Error('Indica el nombre de tu clínica o consulta.');
     }
+    if (CARACTERES_NO_ASCII.test(correo)) {
+      throw new Error('El correo no puede tener tildes ni la letra ñ. Por ejemplo: duenomascota@gmail.com');
+    }
     if (!FORMATO_CORREO.test(correo.trim())) {
-      throw new Error('Ingresa un correo válido.');
+      throw new Error('Ingresa un correo válido, por ejemplo nombre@gmail.com.');
     }
     if (clave.length < 6) {
       throw new Error('La contraseña debe tener al menos 6 caracteres.');
@@ -329,6 +355,7 @@ export function ProveedorPetcare({ children }: { children: ReactNode }) {
 
   const valor: ValorContextoPetcare = {
     cargando,
+    errorInicio,
     usuario,
     iniciarSesion,
     registrarse,
