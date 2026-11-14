@@ -160,6 +160,9 @@ export async function obtenerPerfil(id: string, correo: string): Promise<Usuario
     throw new Error(PERFIL_NO_ENCONTRADO);
   }
   verificar(error);
+  if (!data) {
+    throw new Error(PERFIL_NO_ENCONTRADO);
+  }
   return {
     id,
     correo,
@@ -195,6 +198,9 @@ export async function crearMascota(tutorId: string, datos: DatosMascota): Promis
     .select('id')
     .single();
   verificar(error);
+  if (!data) {
+    throw new Error('No se pudo crear la mascota.');
+  }
   return data.id as string;
 }
 
