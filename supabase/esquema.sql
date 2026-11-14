@@ -18,6 +18,7 @@ create table public.mascotas (
   color_pelaje text not null default '',
   peso_kg numeric check (peso_kg is null or (peso_kg > 0 and peso_kg <= 150)),
   detalle text not null default '',
+  observaciones text not null default '' check (char_length(observaciones) <= 500),
   foto_url text,
   codigo_qr text not null unique default replace(gen_random_uuid()::text, '-', ''),
   creado timestamptz not null default now()
@@ -202,10 +203,31 @@ begin
 end;
 $$;
 
+create or replace function public.actualizar_observaciones(p_mascota uuid, p_texto text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.tiene_acceso(p_mascota) then
+    raise exception 'No tienes permiso para editar esta ficha.';
+  end if;
+
+  if char_length(coalesce(p_texto, '')) > 500 then
+    raise exception 'Las observaciones no pueden superar los 500 caracteres.';
+  end if;
+
+  update public.mascotas set observaciones = trim(coalesce(p_texto, '')) where id = p_mascota;
+end;
+$$;
+
 revoke execute on function public.vincular_por_codigo(text) from public, anon;
 revoke execute on function public.renovar_codigo_qr(uuid) from public, anon;
 grant execute on function public.vincular_por_codigo(text) to authenticated;
 grant execute on function public.renovar_codigo_qr(uuid) to authenticated;
+revoke execute on function public.actualizar_observaciones(uuid, text) from public, anon;
+grant execute on function public.actualizar_observaciones(uuid, text) to authenticated;
 
 alter table public.perfiles enable row level security;
 alter table public.mascotas enable row level security;

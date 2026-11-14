@@ -7,6 +7,7 @@ import { AvatarMascota } from '@/componentes/avatar-mascota';
 import { BotonPrincipal } from '@/componentes/boton-principal';
 import { CortinaEstado } from '@/componentes/cortina-estado';
 import { FilaRegistro } from '@/componentes/fila-registro';
+import { ModalFormulario } from '@/componentes/modal-formulario';
 import { ModalMascota } from '@/componentes/modal-mascota';
 import { ModalQr } from '@/componentes/modal-qr';
 import { TextoTema } from '@/componentes/texto-tema';
@@ -59,10 +60,12 @@ export default function PantallaInicio() {
     eliminarMascota,
     renovarCodigoQr,
     quitarAcceso,
+    actualizarObservaciones,
   } = usarPetcare();
   const [modo, setModo] = useState<ModoFormulario>('cerrado');
   const [fichaVetAbierta, setFichaVetAbierta] = useState(false);
   const [qrAbierto, setQrAbierto] = useState(false);
+  const [observacionesAbiertas, setObservacionesAbiertas] = useState(false);
 
   const esVeterinario = usuario?.rol === 'veterinario';
   const primerNombre = usuario?.nombre.trim().split(' ')[0] ?? '';
@@ -346,10 +349,34 @@ export default function PantallaInicio() {
         />
       )}
 
+      {observacionesAbiertas && mascotaSeleccionada && (
+        <ModalFormulario
+          titulo="Observaciones clínicas"
+          subtitulo={`Ficha de ${mascotaSeleccionada.nombre}. Las pueden editar el dueño y los veterinarios con acceso.`}
+          textoBoton="Guardar observaciones"
+          campos={[
+            {
+              clave: 'texto',
+              etiqueta: 'Observaciones',
+              multilinea: true,
+              largoMaximo: 500,
+              placeholder: 'Ej: Alergia a la penicilina. Control de peso cada 3 meses.',
+              valorInicial: mascotaSeleccionada.observaciones,
+            },
+          ]}
+          alCerrar={() => setObservacionesAbiertas(false)}
+          alGuardar={(valores) => {
+            actualizarObservaciones(mascotaSeleccionada.id, valores.texto);
+            setObservacionesAbiertas(false);
+          }}
+        />
+      )}
+
       {mascotaSeleccionada && (
         <Modal animationType="fade" transparent visible={fichaVetAbierta} onRequestClose={() => setFichaVetAbierta(false)}>
           <View style={estilos.fondoModal}>
             <View style={estilos.tarjetaModalVet}>
+              <ScrollView showsVerticalScrollIndicator={false}>
               <View style={estilos.iconoModalVet}>
                 <MaterialIcons name="medical-services" size={27} color={Colores.marca.coral} />
               </View>
@@ -363,7 +390,21 @@ export default function PantallaInicio() {
               <FilaDetalle etiqueta="Última visita" valor={ultimaVisita ? formatearFechaCompleta(ultimaVisita.fecha) : 'Sin registro'} />
               <FilaDetalle etiqueta="Visitas registradas" valor={String(mascotaSeleccionada.visitas.length)} />
               <FilaDetalle etiqueta="Vacunas registradas" valor={String(mascotaSeleccionada.vacunas.length)} />
-              <BotonPrincipal texto="Cerrar" alPresionar={() => setFichaVetAbierta(false)} />
+              <View style={estilos.bloqueObservaciones}>
+                <TextoTema style={estilos.etiquetaDetalleVet}>Observaciones clínicas</TextoTema>
+                <TextoTema style={estilos.textoObservaciones}>
+                  {mascotaSeleccionada.observaciones || 'Sin observaciones registradas.'}
+                </TextoTema>
+              </View>
+              <BotonPrincipal
+                texto="Editar observaciones"
+                alPresionar={() => {
+                  setFichaVetAbierta(false);
+                  setObservacionesAbiertas(true);
+                }}
+              />
+              <BotonPrincipal texto="Cerrar" variante="contorno" alPresionar={() => setFichaVetAbierta(false)} />
+              </ScrollView>
             </View>
           </View>
         </Modal>
@@ -445,11 +486,13 @@ const estilos = StyleSheet.create({
   textoVacio: { color: Colores.marca.apagado, fontSize: 13, lineHeight: 19, textAlign: 'center' },
   botonVacio: { alignSelf: 'stretch', marginTop: 8 },
   fondoModal: { flex: 1, backgroundColor: 'rgba(20, 47, 57, 0.42)', justifyContent: 'center' },
-  tarjetaModalVet: { backgroundColor: Colores.marca.fondo, borderRadius: 24, margin: 24, padding: 24 },
+  tarjetaModalVet: { backgroundColor: Colores.marca.fondo, borderRadius: 24, margin: 24, padding: 24, maxHeight: '88%' },
   iconoModalVet: { width: 52, height: 52, borderRadius: 16, backgroundColor: Colores.marca.coralSuave, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
   tituloModal: { color: Colores.marca.tinta, fontSize: 22 },
   mascotaModalVet: { color: Colores.marca.apagado, fontSize: 13, marginTop: 4, marginBottom: 20 },
   filaDetalleVet: { borderTopWidth: 1, borderTopColor: Colores.marca.linea, paddingVertical: 13, flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   etiquetaDetalleVet: { color: Colores.marca.apagado, fontSize: 12 },
+  bloqueObservaciones: { borderTopWidth: 1, borderTopColor: Colores.marca.linea, paddingVertical: 13, marginBottom: 12 },
+  textoObservaciones: { color: Colores.marca.tinta, fontSize: 12, lineHeight: 18, marginTop: 6 },
   valorDetalleVet: { flex: 1, color: Colores.marca.tinta, fontSize: 12, fontWeight: '700', textAlign: 'right' },
 });

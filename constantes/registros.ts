@@ -14,3 +14,9 @@ export const UNIDADES_INDICADOR: Record<TipoIndicador, string> = {
   peso: 'kg',
   temperatura: '°C',
 };
+
+export const CLINICA_SIN_INDICAR = 'Sin clínica indicada';
+
+export function clinicaEditable(clinica: string | undefined): string | undefined {
+  return clinica === CLINICA_SIN_INDICAR ? '' : clinica;
+}

@@ -11,12 +11,19 @@ import { GraficoBarras } from '@/componentes/grafico-barras';
 import { ModalFormulario, type CampoFormulario } from '@/componentes/modal-formulario';
 import { SelectorMascota } from '@/componentes/selector-mascota';
 import { TextoTema } from '@/componentes/texto-tema';
-import { ETIQUETAS_TIPO_VACUNA, NOMBRES_INDICADOR, UNIDADES_INDICADOR } from '@/constantes/registros';
+import {
+  CLINICA_SIN_INDICAR,
+  clinicaEditable,
+  ETIQUETAS_TIPO_VACUNA,
+  NOMBRES_INDICADOR,
+  UNIDADES_INDICADOR,
+} from '@/constantes/registros';
 import { Colores } from '@/constantes/tema';
 import { usarPetcare } from '@/contextos/contexto-petcare';
 import type { TipoIndicador, TipoVacuna } from '@/tipos/modelos';
 import { confirmar } from '@/utilidades/alertas';
 import { formatearDia, formatearFechaCompleta, hoyIso } from '@/utilidades/fechas';
+import { mensajeAnteriorNacimiento } from '@/utilidades/validaciones';
 
 type Seccion = 'vacunas' | 'indicadores' | 'medicamentos' | 'estadisticas';
 type Formulario = 'ninguno' | 'vacuna' | 'indicador' | 'medicamento';
@@ -42,16 +49,20 @@ export default function PantallaSalud() {
   const {
     mascotaSeleccionada,
     agregarVacuna,
+    actualizarVacuna,
     eliminarVacuna,
     agregarIndicador,
+    actualizarIndicador,
     eliminarIndicador,
     agregarMedicamento,
+    actualizarMedicamento,
     alternarMedicamento,
     eliminarMedicamento,
   } = usarPetcare();
   const [seccion, setSeccion] = useState<Seccion>('vacunas');
   const [tipoIndicador, setTipoIndicador] = useState<TipoIndicador>('peso');
   const [formulario, setFormulario] = useState<Formulario>('ninguno');
+  const [editandoId, setEditandoId] = useState<string | null>(null);
 
   if (mascotaSeleccionada === null) {
     return (
@@ -65,6 +76,21 @@ export default function PantallaSalud() {
   }
 
   const mascota = mascotaSeleccionada;
+
+  const abrir = (tipo: Formulario, id: string | null = null) => {
+    setEditandoId(id);
+    setFormulario(tipo);
+  };
+
+  const cerrar = () => {
+    setFormulario('ninguno');
+    setEditandoId(null);
+  };
+
+  const vacunaEditada = mascota.vacunas.find((vacuna) => vacuna.id === editandoId);
+  const indicadorEditado = mascota.indicadores.find((indicador) => indicador.id === editandoId);
+  const medicamentoEditado = mascota.medicamentos.find((medicamento) => medicamento.id === editandoId);
+
   const indicadoresDelTipo = mascota.indicadores.filter((indicador) => indicador.tipo === tipoIndicador);
   const puntosGrafico = [...indicadoresDelTipo]
     .reverse()
@@ -80,38 +106,49 @@ export default function PantallaSalud() {
   const variacionPeso = pesos.length > 1 ? Math.round((pesos[0] - pesos[pesos.length - 1]) * 100) / 100 : 0;
 
   const camposVacuna: CampoFormulario[] = [
-    { clave: 'nombre', etiqueta: 'Nombre', obligatorio: true, placeholder: 'Ej: Antirrábica' },
-    { clave: 'tipo', etiqueta: 'Tipo', tipo: 'opciones', opciones: OPCIONES_VACUNA },
-    { clave: 'fecha', etiqueta: 'Fecha de aplicación', tipo: 'fecha', obligatorio: true, noFutura: true, valorInicial: hoyIso() },
-    { clave: 'proximaDosis', etiqueta: 'Próxima dosis (opcional)', tipo: 'fecha' },
-    { clave: 'clinica', etiqueta: 'Clínica (opcional)' },
+    { clave: 'nombre', etiqueta: 'Nombre', obligatorio: true, conLetras: true, largoMaximo: 60, placeholder: 'Ej: Antirrábica', valorInicial: vacunaEditada?.nombre },
+    { clave: 'tipo', etiqueta: 'Tipo', tipo: 'opciones', opciones: OPCIONES_VACUNA, valorInicial: vacunaEditada?.tipo },
+    { clave: 'fecha', etiqueta: 'Fecha de aplicación', tipo: 'fecha', obligatorio: true, noFutura: true, valorInicial: vacunaEditada?.fecha ?? hoyIso() },
+    { clave: 'proximaDosis', etiqueta: 'Próxima dosis (opcional)', tipo: 'fecha', valorInicial: vacunaEditada?.proximaDosis },
+    { clave: 'clinica', etiqueta: 'Clínica (opcional)', conLetras: true, largoMaximo: 60, valorInicial: clinicaEditable(vacunaEditada?.clinica) },
   ];
 
   const camposIndicador: CampoFormulario[] = [
-    { clave: 'tipo', etiqueta: 'Indicador', tipo: 'opciones', opciones: OPCIONES_INDICADOR, valorInicial: tipoIndicador },
-    { clave: 'fecha', etiqueta: 'Fecha', tipo: 'fecha', obligatorio: true, noFutura: true, valorInicial: hoyIso() },
-    { clave: 'valor', etiqueta: 'Valor', tipo: 'numero', obligatorio: true, placeholder: 'Ej: 18.5' },
+    { clave: 'tipo', etiqueta: 'Indicador', tipo: 'opciones', opciones: OPCIONES_INDICADOR, valorInicial: indicadorEditado?.tipo ?? tipoIndicador },
+    { clave: 'fecha', etiqueta: 'Fecha', tipo: 'fecha', obligatorio: true, noFutura: true, valorInicial: indicadorEditado?.fecha ?? hoyIso() },
+    { clave: 'valor', etiqueta: 'Valor', tipo: 'numero', obligatorio: true, placeholder: 'Ej: 18,5', valorInicial: indicadorEditado ? String(indicadorEditado.valor) : undefined },
   ];
 
   const camposMedicamento: CampoFormulario[] = [
-    { clave: 'nombre', etiqueta: 'Medicamento', obligatorio: true },
-    { clave: 'dosis', etiqueta: 'Dosis', obligatorio: true, placeholder: 'Ej: 1 comprimido' },
-    { clave: 'frecuencia', etiqueta: 'Frecuencia', obligatorio: true, placeholder: 'Ej: cada 12 horas' },
-    { clave: 'inicio', etiqueta: 'Fecha de inicio', tipo: 'fecha', obligatorio: true, valorInicial: hoyIso() },
-    { clave: 'hora', etiqueta: 'Hora del recordatorio diario (opcional)', tipo: 'hora' },
+    { clave: 'nombre', etiqueta: 'Medicamento', obligatorio: true, conLetras: true, largoMaximo: 60, valorInicial: medicamentoEditado?.nombre },
+    { clave: 'dosis', etiqueta: 'Dosis', obligatorio: true, conLetras: true, largoMaximo: 40, placeholder: 'Ej: 1 comprimido', valorInicial: medicamentoEditado?.dosis },
+    { clave: 'frecuencia', etiqueta: 'Frecuencia', obligatorio: true, conLetras: true, largoMaximo: 40, placeholder: 'Ej: cada 12 horas', valorInicial: medicamentoEditado?.frecuencia },
+    { clave: 'inicio', etiqueta: 'Fecha de inicio', tipo: 'fecha', obligatorio: true, valorInicial: medicamentoEditado?.inicio ?? hoyIso() },
+    { clave: 'hora', etiqueta: 'Hora del recordatorio diario (opcional)', tipo: 'hora', valorInicial: medicamentoEditado?.hora },
   ];
 
   const validarVacuna = (valores: Record<string, string>) => {
+    const anterior = mensajeAnteriorNacimiento(valores.fecha, mascota);
+    if (anterior) {
+      return anterior;
+    }
     if (valores.proximaDosis && valores.proximaDosis < valores.fecha) {
       return 'La próxima dosis no puede ser anterior a la fecha de aplicación.';
     }
     const repetida = mascota.vacunas.some(
-      (vacuna) => vacuna.nombre.trim().toLowerCase() === valores.nombre.toLowerCase() && vacuna.fecha === valores.fecha
+      (vacuna) =>
+        vacuna.id !== editandoId &&
+        vacuna.nombre.trim().toLowerCase() === valores.nombre.toLowerCase() &&
+        vacuna.fecha === valores.fecha
     );
     return repetida ? 'Ya registraste esta vacuna en esa fecha.' : null;
   };
 
   const validarIndicador = (valores: Record<string, string>) => {
+    const anterior = mensajeAnteriorNacimiento(valores.fecha, mascota);
+    if (anterior) {
+      return anterior;
+    }
     const valor = Number(valores.valor);
     if (valores.tipo === 'peso' && (valor < 0.1 || valor > 150)) {
       return 'El peso debe estar entre 0,1 y 150 kg.';
@@ -121,6 +158,8 @@ export default function PantallaSalud() {
     }
     return null;
   };
+
+  const validarMedicamento = (valores: Record<string, string>) => mensajeAnteriorNacimiento(valores.inicio, mascota);
 
   return (
     <View style={estilos.pantalla}>
@@ -134,7 +173,7 @@ export default function PantallaSalud() {
 
         {seccion === 'vacunas' && (
           <>
-            <BotonPrincipal texto="Registrar vacuna o desparasitación" alPresionar={() => setFormulario('vacuna')} />
+            <BotonPrincipal texto="Registrar vacuna o desparasitación" alPresionar={() => abrir('vacuna')} />
             <View style={estilos.lista}>
               {mascota.vacunas.length === 0 && <EstadoVacio icono="vaccines" texto="Aún no hay vacunas ni desparasitaciones registradas." />}
               {mascota.vacunas.map((vacuna) => (
@@ -146,6 +185,7 @@ export default function PantallaSalud() {
                   detalle={`${ETIQUETAS_TIPO_VACUNA[vacuna.tipo]} · ${formatearFechaCompleta(vacuna.fecha)}${
                     vacuna.proximaDosis ? ` · Próxima: ${formatearFechaCompleta(vacuna.proximaDosis)}` : ''
                   }`}
+                  alEditar={() => abrir('vacuna', vacuna.id)}
                   alEliminar={() => confirmar('Eliminar registro', `¿Eliminar "${vacuna.nombre}"?`, 'Eliminar', () => eliminarVacuna(mascota.id, vacuna.id))}
                 />
               ))}
@@ -157,7 +197,7 @@ export default function PantallaSalud() {
           <>
             <FiltroChips opciones={OPCIONES_INDICADOR} valor={tipoIndicador} alCambiar={setTipoIndicador} />
             <View style={estilos.separador}>
-              <BotonPrincipal texto="Registrar medición" alPresionar={() => setFormulario('indicador')} />
+              <BotonPrincipal texto="Registrar medición" alPresionar={() => abrir('indicador')} />
             </View>
             {puntosGrafico.length > 0 && <GraficoBarras puntos={puntosGrafico} unidad={UNIDADES_INDICADOR[tipoIndicador]} />}
             <View style={estilos.lista}>
@@ -169,6 +209,7 @@ export default function PantallaSalud() {
                   color={Colores.marca.menta}
                   titulo={`${indicador.valor} ${UNIDADES_INDICADOR[indicador.tipo]}`}
                   detalle={formatearFechaCompleta(indicador.fecha)}
+                  alEditar={() => abrir('indicador', indicador.id)}
                   alEliminar={() => confirmar('Eliminar medición', '¿Eliminar esta medición?', 'Eliminar', () => eliminarIndicador(mascota.id, indicador.id))}
                 />
               ))}
@@ -178,7 +219,7 @@ export default function PantallaSalud() {
 
         {seccion === 'medicamentos' && (
           <>
-            <BotonPrincipal texto="Registrar medicamento" alPresionar={() => setFormulario('medicamento')} />
+            <BotonPrincipal texto="Registrar medicamento" alPresionar={() => abrir('medicamento')} />
             <View style={estilos.lista}>
               {mascota.medicamentos.length === 0 && <EstadoVacio icono="medication" texto="Aún no hay medicamentos ni tratamientos registrados." />}
               {mascota.medicamentos.map((medicamento) => (
@@ -193,6 +234,7 @@ export default function PantallaSalud() {
                   atenuada={!medicamento.activo}
                   textoAccion={medicamento.activo ? 'Marcar como finalizado' : 'Reactivar tratamiento'}
                   alAccion={() => alternarMedicamento(mascota.id, medicamento.id)}
+                  alEditar={() => abrir('medicamento', medicamento.id)}
                   alEliminar={() => confirmar('Eliminar medicamento', `¿Eliminar "${medicamento.nombre}"?`, 'Eliminar', () => eliminarMedicamento(mascota.id, medicamento.id))}
                 />
               ))}
@@ -228,58 +270,77 @@ export default function PantallaSalud() {
 
       {formulario === 'vacuna' && (
         <ModalFormulario
-          titulo="Vacuna o desparasitación"
-          subtitulo={`Registro para ${mascota.nombre}. Si indicas próxima dosis, recibirás un aviso.`}
+          titulo={editandoId ? 'Editar vacuna o desparasitación' : 'Vacuna o desparasitación'}
+          subtitulo={`Registro de ${mascota.nombre}. Si indicas próxima dosis, recibirás un aviso.`}
+          textoBoton={editandoId ? 'Guardar cambios' : 'Guardar'}
           campos={camposVacuna}
           validar={validarVacuna}
-          alCerrar={() => setFormulario('ninguno')}
+          alCerrar={cerrar}
           alGuardar={(valores) => {
-            agregarVacuna(mascota.id, {
+            const datos = {
               nombre: valores.nombre,
               tipo: valores.tipo as TipoVacuna,
               fecha: valores.fecha,
               proximaDosis: valores.proximaDosis,
-              clinica: valores.clinica || 'Sin clínica indicada',
-            });
-            setFormulario('ninguno');
+              clinica: valores.clinica || CLINICA_SIN_INDICAR,
+            };
+            if (editandoId) {
+              actualizarVacuna(mascota.id, editandoId, datos);
+            } else {
+              agregarVacuna(mascota.id, datos);
+            }
+            cerrar();
           }}
         />
       )}
 
       {formulario === 'indicador' && (
         <ModalFormulario
-          titulo="Registrar medición"
+          titulo={editandoId ? 'Editar medición' : 'Registrar medición'}
           subtitulo={`Seguimiento de ${mascota.nombre}`}
+          textoBoton={editandoId ? 'Guardar cambios' : 'Guardar'}
           campos={camposIndicador}
           validar={validarIndicador}
-          alCerrar={() => setFormulario('ninguno')}
+          alCerrar={cerrar}
           alGuardar={(valores) => {
-            agregarIndicador(mascota.id, {
+            const datos = {
               tipo: valores.tipo as TipoIndicador,
               fecha: valores.fecha,
-              valor: Number(valores.valor.replace(',', '.')),
-            });
-            setTipoIndicador(valores.tipo as TipoIndicador);
-            setFormulario('ninguno');
+              valor: Number(valores.valor),
+            };
+            if (editandoId) {
+              actualizarIndicador(mascota.id, editandoId, datos);
+            } else {
+              agregarIndicador(mascota.id, datos);
+            }
+            setTipoIndicador(datos.tipo);
+            cerrar();
           }}
         />
       )}
 
       {formulario === 'medicamento' && (
         <ModalFormulario
-          titulo="Medicamento o tratamiento"
+          titulo={editandoId ? 'Editar medicamento' : 'Medicamento o tratamiento'}
           subtitulo={`Indicado para ${mascota.nombre}. Con hora de aviso recibirás un recordatorio diario.`}
+          textoBoton={editandoId ? 'Guardar cambios' : 'Guardar'}
           campos={camposMedicamento}
-          alCerrar={() => setFormulario('ninguno')}
+          validar={validarMedicamento}
+          alCerrar={cerrar}
           alGuardar={(valores) => {
-            agregarMedicamento(mascota.id, {
+            const datos = {
               nombre: valores.nombre,
               dosis: valores.dosis,
               frecuencia: valores.frecuencia,
               inicio: valores.inicio,
               hora: valores.hora,
-            });
-            setFormulario('ninguno');
+            };
+            if (editandoId) {
+              actualizarMedicamento(mascota.id, editandoId, datos);
+            } else {
+              agregarMedicamento(mascota.id, datos);
+            }
+            cerrar();
           }}
         />
       )}

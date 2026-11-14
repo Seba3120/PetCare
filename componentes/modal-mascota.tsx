@@ -8,6 +8,7 @@ import { TextoTema } from '@/componentes/texto-tema';
 import { Colores } from '@/constantes/tema';
 import type { DatosMascota, FotoElegida, Sexo, TipoMascota } from '@/tipos/modelos';
 import { calcularIniciales } from '@/utilidades/mascotas';
+import { nacimientoIrreal } from '@/utilidades/validaciones';
 
 const OPCIONES_TIPO: { valor: TipoMascota; etiqueta: string }[] = [
   { valor: 'Perro', etiqueta: 'Perro' },
@@ -63,9 +64,9 @@ export function ModalMascota({
   };
 
   const campos: CampoFormulario[] = [
-    { clave: 'nombre', etiqueta: 'Nombre de la mascota', obligatorio: true, placeholder: 'Ej: Luna', largoMaximo: 40, valorInicial: valorInicial.nombre },
+    { clave: 'nombre', etiqueta: 'Nombre de la mascota', obligatorio: true, conLetras: true, placeholder: 'Ej: Luna', largoMaximo: 40, valorInicial: valorInicial.nombre },
     { clave: 'tipo', etiqueta: 'Especie', tipo: 'opciones', opciones: OPCIONES_TIPO, valorInicial: valorInicial.tipo },
-    { clave: 'raza', etiqueta: 'Raza', placeholder: 'Ej: Golden Retriever', largoMaximo: 40, valorInicial: valorInicial.raza },
+    { clave: 'raza', etiqueta: 'Raza', placeholder: 'Ej: Golden Retriever', conLetras: true, largoMaximo: 40, valorInicial: valorInicial.raza },
     {
       clave: 'fechaNacimiento',
       etiqueta: 'Fecha de nacimiento (DD-MM-AAAA)',
@@ -77,7 +78,7 @@ export function ModalMascota({
     },
     { clave: 'pesoKg', etiqueta: 'Peso (kg)', tipo: 'numero', minimo: 0.1, maximo: 150, placeholder: 'Ej: 28,5', valorInicial: valorInicial.pesoKg },
     { clave: 'sexo', etiqueta: 'Sexo', tipo: 'opciones', opciones: OPCIONES_SEXO, valorInicial: valorInicial.sexo },
-    { clave: 'colorPelaje', etiqueta: 'Color de pelaje', placeholder: 'Ej: Dorado', largoMaximo: 30, valorInicial: valorInicial.colorPelaje },
+    { clave: 'colorPelaje', etiqueta: 'Color de pelaje', placeholder: 'Ej: Dorado', conLetras: true, largoMaximo: 30, valorInicial: valorInicial.colorPelaje },
     { clave: 'detalle', etiqueta: 'Detalle (opcional)', placeholder: 'Ej: Cariñosa y juguetona', largoMaximo: 80, valorInicial: valorInicial.detalle },
   ];
 
@@ -102,6 +103,9 @@ export function ModalMascota({
     const nombre = valores.nombre.trim().toLowerCase();
     if (nombresEnUso.some((existente) => existente.trim().toLowerCase() === nombre)) {
       return 'Ya tienes una mascota con ese nombre.';
+    }
+    if (nacimientoIrreal(valores.fechaNacimiento)) {
+      return 'La fecha de nacimiento no es realista: máximo 40 años atrás.';
     }
     return null;
   };

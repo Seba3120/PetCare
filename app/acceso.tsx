@@ -8,6 +8,7 @@ import { MarcoAcceso } from '@/componentes/marco-acceso';
 import { TextoTema } from '@/componentes/texto-tema';
 import { Colores } from '@/constantes/tema';
 import { usarPetcare } from '@/contextos/contexto-petcare';
+import { validarCorreo } from '@/utilidades/validaciones';
 
 export default function PantallaAcceso() {
   const { iniciarSesion, errorInicio } = usarPetcare();
@@ -18,6 +19,11 @@ export default function PantallaAcceso() {
 
   const entrar = async () => {
     setError('');
+    const problema = validarCorreo(correo) ?? (clave === '' ? 'Ingresa tu contraseña.' : null);
+    if (problema) {
+      setError(problema);
+      return;
+    }
     setEnviando(true);
     try {
       await iniciarSesion(correo, clave);

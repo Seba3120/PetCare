@@ -60,6 +60,7 @@ type FilaMascota = {
   detalle: string;
   foto_url: string | null;
   codigo_qr: string;
+  observaciones: string | null;
   tutor: { nombre: string } | null;
   visitas: FilaVisita[];
   vacunas: FilaVacuna[];
@@ -69,6 +70,8 @@ type FilaMascota = {
   recordatorios: FilaRecordatorio[];
   acceso_veterinarios: FilaAcceso[];
 };
+
+export const PERFIL_NO_ENCONTRADO = 'PERFIL_NO_ENCONTRADO';
 
 export type TablaRegistro = 'visitas' | 'vacunas' | 'indicadores' | 'medicamentos' | 'controles' | 'recordatorios';
 
@@ -107,6 +110,7 @@ function aMascota(fila: FilaMascota): Mascota {
     peso: ultimoPeso ? `${ultimoPeso.valor} kg` : pesoBase ? `${pesoBase} kg` : '',
     fotoUrl: fila.foto_url,
     codigoQr: fila.codigo_qr,
+    observaciones: fila.observaciones ?? '',
     color: COLORES_MASCOTA[numero % COLORES_MASCOTA.length],
     iniciales: calcularIniciales(fila.nombre),
     visitas: ordenarDescendente(
@@ -152,6 +156,9 @@ function aMascota(fila: FilaMascota): Mascota {
 
 export async function obtenerPerfil(id: string, correo: string): Promise<Usuario> {
   const { data, error } = await supabase.from('perfiles').select('nombre, rol, clinica').eq('id', id).single();
+  if (error?.code === 'PGRST116') {
+    throw new Error(PERFIL_NO_ENCONTRADO);
+  }
   verificar(error);
   return {
     id,
@@ -327,5 +334,61 @@ export async function quitarAcceso(mascotaId: string, veterinarioId: string): Pr
     .delete()
     .eq('mascota_id', mascotaId)
     .eq('veterinario_id', veterinarioId);
+  verificar(error);
+}
+
+async function actualizar(tabla: TablaRegistro, id: string, valores: Record<string, unknown>): Promise<void> {
+  const { error } = await supabase.from(tabla).update(valores).eq('id', id);
+  verificar(error);
+}
+
+export function actualizarVisita(id: string, datos: DatosVisita) {
+  return actualizar('visitas', id, {
+    tipo: datos.tipo,
+    titulo: datos.titulo,
+    clinica: datos.clinica,
+    fecha: datos.fecha,
+  });
+}
+
+export function actualizarVacuna(id: string, datos: DatosVacuna) {
+  return actualizar('vacunas', id, {
+    nombre: datos.nombre,
+    tipo: datos.tipo,
+    fecha: datos.fecha,
+    proxima_dosis: datos.proximaDosis || null,
+    clinica: datos.clinica,
+  });
+}
+
+export function actualizarIndicador(id: string, datos: DatosIndicador) {
+  return actualizar('indicadores', id, { tipo: datos.tipo, fecha: datos.fecha, valor: datos.valor });
+}
+
+export function actualizarMedicamento(id: string, datos: DatosMedicamento) {
+  return actualizar('medicamentos', id, {
+    nombre: datos.nombre,
+    dosis: datos.dosis,
+    frecuencia: datos.frecuencia,
+    inicio: datos.inicio,
+    hora: datos.hora,
+  });
+}
+
+export function actualizarControl(id: string, datos: DatosControl) {
+  return actualizar('controles', id, {
+    titulo: datos.titulo,
+    fecha: datos.fecha,
+    hora: datos.hora,
+    clinica: datos.clinica,
+  });
+}
+
+export function actualizarRecordatorio(id: string, datos: DatosRecordatorio) {
+  return actualizar('recordatorios', id, { titulo: datos.titulo, fecha: datos.fecha, hora: datos.hora });
+}
+
+export async function actualizarObservaciones(mascotaId: string, texto: string): Promise<void> {
+  const { error } = await supabase.rpc('actualizar_observaciones', { p_mascota: mascotaId, p_texto: texto });
   verificar(error);
 }

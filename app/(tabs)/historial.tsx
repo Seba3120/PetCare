@@ -10,6 +10,7 @@ import { FiltroChips } from '@/componentes/filtro-chips';
 import { ModalFormulario, type CampoFormulario } from '@/componentes/modal-formulario';
 import { SelectorMascota } from '@/componentes/selector-mascota';
 import { TextoTema } from '@/componentes/texto-tema';
+import { CLINICA_SIN_INDICAR, clinicaEditable } from '@/constantes/registros';
 import { Colores } from '@/constantes/tema';
 import { ESTILOS_VISITA, TIPOS_VISITA } from '@/constantes/visitas';
 import { usarPetcare } from '@/contextos/contexto-petcare';
@@ -17,13 +18,15 @@ import type { TipoVisita } from '@/tipos/modelos';
 import { confirmar } from '@/utilidades/alertas';
 import { formatearDia, formatearFechaCompleta, hoyIso, obtenerAnio } from '@/utilidades/fechas';
 import { construirEventos } from '@/utilidades/historial';
+import { mensajeAnteriorNacimiento } from '@/utilidades/validaciones';
 import { obtenerProximoEvento } from '@/utilidades/visitas';
 
 export default function PantallaHistorial() {
-  const { mascotas, mascotaSeleccionada, agregarVisita, eliminarVisita } = usarPetcare();
+  const { mascotas, mascotaSeleccionada, agregarVisita, actualizarVisita, eliminarVisita } = usarPetcare();
   const anioActual = String(new Date().getFullYear());
   const [anioSeleccionado, setAnioSeleccionado] = useState(anioActual);
-  const [registrando, setRegistrando] = useState(false);
+  const [formularioAbierto, setFormularioAbierto] = useState(false);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
 
   if (mascotaSeleccionada === null) {
     return (
@@ -40,6 +43,7 @@ export default function PantallaHistorial() {
   const eventos = construirEventos(mascota);
   const eventosDelAnio = eventos.filter((evento) => obtenerAnio(evento.fecha) === anioSeleccionado);
   const proximoEvento = obtenerProximoEvento(mascota);
+  const visitaEditada = mascota.visitas.find((visita) => visita.id === editandoId);
 
   const anios = Array.from(
     new Set([
@@ -50,16 +54,27 @@ export default function PantallaHistorial() {
     .sort()
     .reverse();
 
+  const abrirFormulario = (id: string | null = null) => {
+    setEditandoId(id);
+    setFormularioAbierto(true);
+  };
+
+  const cerrarFormulario = () => {
+    setFormularioAbierto(false);
+    setEditandoId(null);
+  };
+
   const camposVisita: CampoFormulario[] = [
     {
       clave: 'tipo',
       etiqueta: 'Tipo de registro',
       tipo: 'opciones',
       opciones: TIPOS_VISITA.map((tipo) => ({ valor: tipo, etiqueta: ESTILOS_VISITA[tipo].etiqueta })),
+      valorInicial: visitaEditada?.tipo,
     },
-    { clave: 'titulo', etiqueta: 'Título', obligatorio: true, placeholder: 'Ej: Revisión general' },
-    { clave: 'clinica', etiqueta: 'Clínica', placeholder: 'Ej: Clínica Vet Salud' },
-    { clave: 'fecha', etiqueta: 'Fecha', tipo: 'fecha', obligatorio: true, valorInicial: hoyIso() },
+    { clave: 'titulo', etiqueta: 'Título', obligatorio: true, conLetras: true, largoMaximo: 80, placeholder: 'Ej: Revisión general', valorInicial: visitaEditada?.titulo },
+    { clave: 'clinica', etiqueta: 'Clínica', conLetras: true, largoMaximo: 60, placeholder: 'Ej: Clínica Vet Salud', valorInicial: clinicaEditable(visitaEditada?.clinica) },
+    { clave: 'fecha', etiqueta: 'Fecha', tipo: 'fecha', obligatorio: true, noFutura: true, valorInicial: visitaEditada?.fecha ?? hoyIso() },
   ];
 
   return (
@@ -77,7 +92,7 @@ export default function PantallaHistorial() {
           <FiltroChips opciones={anios.map((anio) => ({ valor: anio, etiqueta: anio }))} valor={anioSeleccionado} alCambiar={setAnioSeleccionado} />
         </View>
 
-        <BotonPrincipal texto="Registrar visita" alPresionar={() => setRegistrando(true)} />
+        <BotonPrincipal texto="Registrar visita" alPresionar={() => abrirFormulario()} />
 
         <View style={estilos.bloqueProximo}>
           {proximoEvento ? (
@@ -116,17 +131,26 @@ export default function PantallaHistorial() {
                   <TextoTema style={estilos.detalleEvento}>{evento.detalle}</TextoTema>
                 </View>
                 {evento.origen === 'visita' && (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Eliminar ${evento.titulo}`}
-                    onPress={() =>
-                      confirmar('Eliminar visita', `¿Eliminar "${evento.titulo}" del historial?`, 'Eliminar', () =>
-                        eliminarVisita(mascota.id, evento.id)
-                      )
-                    }
-                    style={estilos.eliminarEvento}>
-                    <MaterialIcons name="delete-outline" size={21} color={Colores.marca.apagado} />
-                  </Pressable>
+                  <View style={estilos.accionesEvento}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Editar ${evento.titulo}`}
+                      onPress={() => abrirFormulario(evento.id)}
+                      style={estilos.accionEvento}>
+                      <MaterialIcons name="edit" size={20} color={Colores.marca.azul} />
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Eliminar ${evento.titulo}`}
+                      onPress={() =>
+                        confirmar('Eliminar visita', `¿Eliminar "${evento.titulo}" del historial?`, 'Eliminar', () =>
+                          eliminarVisita(mascota.id, evento.id)
+                        )
+                      }
+                      style={estilos.accionEvento}>
+                      <MaterialIcons name="delete-outline" size={21} color={Colores.marca.apagado} />
+                    </Pressable>
+                  </View>
                 )}
               </View>
             ))}
@@ -141,21 +165,28 @@ export default function PantallaHistorial() {
         </View>
       </ScrollView>
 
-      {registrando && (
+      {formularioAbierto && (
         <ModalFormulario
-          titulo="Registrar visita"
-          subtitulo={`Agrega un evento al historial de ${mascota.nombre}`}
+          titulo={editandoId ? 'Editar visita' : 'Registrar visita'}
+          subtitulo={`Historial de ${mascota.nombre}`}
+          textoBoton={editandoId ? 'Guardar cambios' : 'Guardar'}
           campos={camposVisita}
-          alCerrar={() => setRegistrando(false)}
+          validar={(valores) => mensajeAnteriorNacimiento(valores.fecha, mascota)}
+          alCerrar={cerrarFormulario}
           alGuardar={(valores) => {
-            agregarVisita(mascota.id, {
+            const datos = {
               tipo: valores.tipo as TipoVisita,
               titulo: valores.titulo,
-              clinica: valores.clinica || 'Sin clínica indicada',
+              clinica: valores.clinica || CLINICA_SIN_INDICAR,
               fecha: valores.fecha,
-            });
+            };
+            if (editandoId) {
+              actualizarVisita(mascota.id, editandoId, datos);
+            } else {
+              agregarVisita(mascota.id, datos);
+            }
             setAnioSeleccionado(obtenerAnio(valores.fecha));
-            setRegistrando(false);
+            cerrarFormulario();
           }}
         />
       )}
@@ -185,8 +216,9 @@ const estilos = StyleSheet.create({
   linea: { position: 'absolute', top: 31, bottom: 0, width: 1, backgroundColor: Colores.marca.linea },
   textoEvento: { flex: 1, paddingLeft: 12, paddingTop: 1 },
   tituloEvento: { color: Colores.marca.tinta, fontSize: 14 },
-  eliminarEvento: { padding: 6 },
   detalleEvento: { color: Colores.marca.apagado, fontSize: 12, marginTop: 5 },
+  accionesEvento: { flexDirection: 'row', alignItems: 'flex-start' },
+  accionEvento: { padding: 5 },
   sinActividad: { color: Colores.marca.apagado, fontSize: 13, paddingVertical: 8 },
   consejo: { marginTop: 18, backgroundColor: Colores.marca.azulSuave, borderRadius: 15, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
   textoConsejo: { flex: 1, color: Colores.marca.azul, fontSize: 12, lineHeight: 18 },

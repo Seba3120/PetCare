@@ -86,6 +86,7 @@ export type Mascota = {
   colorPelaje: string;
   pesoKg: string;
   detalle: string;
+  observaciones: string;
   edad: string;
   peso: string;
   fotoUrl: string | null;

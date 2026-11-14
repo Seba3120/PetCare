@@ -10,18 +10,32 @@ import { FilaRegistro } from '@/componentes/fila-registro';
 import { ModalFormulario, type CampoFormulario } from '@/componentes/modal-formulario';
 import { SelectorMascota } from '@/componentes/selector-mascota';
 import { TextoTema } from '@/componentes/texto-tema';
+import { clinicaEditable } from '@/constantes/registros';
 import { Colores } from '@/constantes/tema';
 import { usarPetcare } from '@/contextos/contexto-petcare';
 import { notificacionesDisponibles, obtenerPermiso } from '@/servicios/notificaciones';
 import { confirmar } from '@/utilidades/alertas';
 import { formatearFechaCompleta, hoyIso } from '@/utilidades/fechas';
+import { mensajeEnElPasado } from '@/utilidades/validaciones';
 
 type Formulario = 'ninguno' | 'control' | 'recordatorio';
 
 export default function PantallaAgenda() {
-  const { usuario, mascotas, mascotaSeleccionada, agregarControl, eliminarControl, agregarRecordatorio, eliminarRecordatorio, activarNotificaciones } = usarPetcare();
+  const {
+    usuario,
+    mascotas,
+    mascotaSeleccionada,
+    agregarControl,
+    actualizarControl,
+    eliminarControl,
+    agregarRecordatorio,
+    actualizarRecordatorio,
+    eliminarRecordatorio,
+    activarNotificaciones,
+  } = usarPetcare();
   const esVeterinario = usuario?.rol === 'veterinario';
   const [formulario, setFormulario] = useState<Formulario>('ninguno');
+  const [editandoId, setEditandoId] = useState<string | null>(null);
   const [permiso, setPermiso] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -46,21 +60,36 @@ export default function PantallaAgenda() {
   const mascota = mascotaSeleccionada;
   const hoy = hoyIso();
 
+  const abrir = (tipo: Formulario, id: string | null = null) => {
+    setEditandoId(id);
+    setFormulario(tipo);
+  };
+
+  const cerrar = () => {
+    setFormulario('ninguno');
+    setEditandoId(null);
+  };
+
+  const controlEditado = mascota.controles.find((control) => control.id === editandoId);
+  const recordatorioEditado = mascota.recordatorios.find((recordatorio) => recordatorio.id === editandoId);
+
   const camposControl: CampoFormulario[] = [
-    { clave: 'titulo', etiqueta: 'Motivo del control', obligatorio: true, placeholder: 'Ej: Control anual' },
-    { clave: 'fecha', etiqueta: 'Fecha', tipo: 'fecha', obligatorio: true, valorInicial: hoy },
-    { clave: 'hora', etiqueta: 'Hora', tipo: 'hora', obligatorio: true, valorInicial: '10:00' },
-    { clave: 'clinica', etiqueta: 'Clínica (opcional)' },
+    { clave: 'titulo', etiqueta: 'Motivo del control', obligatorio: true, conLetras: true, largoMaximo: 80, placeholder: 'Ej: Control anual', valorInicial: controlEditado?.titulo },
+    { clave: 'fecha', etiqueta: 'Fecha', tipo: 'fecha', obligatorio: true, valorInicial: controlEditado?.fecha ?? hoy },
+    { clave: 'hora', etiqueta: 'Hora', tipo: 'hora', obligatorio: true, valorInicial: controlEditado?.hora ?? '10:00' },
+    { clave: 'clinica', etiqueta: 'Clínica (opcional)', conLetras: true, largoMaximo: 60, valorInicial: clinicaEditable(controlEditado?.clinica) },
   ];
 
   const camposRecordatorio: CampoFormulario[] = [
-    { clave: 'titulo', etiqueta: 'Recordatorio', obligatorio: true, placeholder: 'Ej: Comprar alimento' },
-    { clave: 'fecha', etiqueta: 'Fecha', tipo: 'fecha', obligatorio: true, valorInicial: hoy },
-    { clave: 'hora', etiqueta: 'Hora', tipo: 'hora', obligatorio: true, valorInicial: '09:00' },
+    { clave: 'titulo', etiqueta: 'Recordatorio', obligatorio: true, conLetras: true, largoMaximo: 80, placeholder: 'Ej: Comprar alimento', valorInicial: recordatorioEditado?.titulo },
+    { clave: 'fecha', etiqueta: 'Fecha', tipo: 'fecha', obligatorio: true, valorInicial: recordatorioEditado?.fecha ?? hoy },
+    { clave: 'hora', etiqueta: 'Hora', tipo: 'hora', obligatorio: true, valorInicial: recordatorioEditado?.hora ?? '09:00' },
   ];
 
-  const validarFecha = (valores: Record<string, string>) =>
-    valores.fecha < hoy ? 'La fecha no puede estar en el pasado.' : null;
+  const validarProgramacion = (original?: { fecha: string; hora: string }) => (valores: Record<string, string>) => {
+    const sinCambios = original && original.fecha === valores.fecha && original.hora === valores.hora;
+    return sinCambios ? null : mensajeEnElPasado(valores.fecha, valores.hora);
+  };
 
   return (
     <View style={estilos.pantalla}>
@@ -73,27 +102,27 @@ export default function PantallaAgenda() {
 
         {!esVeterinario && notificacionesDisponibles && (
           <>
-        <View style={estilos.tarjetaNotificaciones}>
-          <View style={estilos.iconoNotificaciones}>
-            <MaterialIcons name="notifications-active" size={22} color={Colores.marca.coral} />
-          </View>
-          <View style={estilos.textoNotificaciones}>
-            <TextoTema tipo="seminegrita" style={estilos.tituloNotificaciones}>Notificaciones</TextoTema>
-            <TextoTema style={estilos.descripcionNotificaciones}>
-              {permiso
-                ? 'Activadas: recibirás avisos de controles, vacunas y medicamentos.'
-                : 'Desactivadas: actívalas para recibir avisos en tu teléfono.'}
-            </TextoTema>
-          </View>
-        </View>
-        {!permiso && <BotonPrincipal texto="Activar notificaciones" variante="contorno" alPresionar={solicitarNotificaciones} />}
+            <View style={estilos.tarjetaNotificaciones}>
+              <View style={estilos.iconoNotificaciones}>
+                <MaterialIcons name="notifications-active" size={22} color={Colores.marca.coral} />
+              </View>
+              <View style={estilos.textoNotificaciones}>
+                <TextoTema tipo="seminegrita" style={estilos.tituloNotificaciones}>Notificaciones</TextoTema>
+                <TextoTema style={estilos.descripcionNotificaciones}>
+                  {permiso
+                    ? 'Activadas: recibirás avisos de controles, vacunas y medicamentos.'
+                    : 'Desactivadas: actívalas para recibir avisos en tu teléfono.'}
+                </TextoTema>
+              </View>
+            </View>
+            {!permiso && <BotonPrincipal texto="Activar notificaciones" variante="contorno" alPresionar={solicitarNotificaciones} />}
           </>
         )}
 
         <View style={estilos.encabezadoSeccion}>
           <TextoTema tipo="subtitulo" style={estilos.tituloSeccion}>Controles veterinarios</TextoTema>
         </View>
-        <BotonPrincipal texto="Agendar control" alPresionar={() => setFormulario('control')} />
+        <BotonPrincipal texto="Agendar control" alPresionar={() => abrir('control')} />
         <View style={estilos.lista}>
           {mascota.controles.length === 0 && <EstadoVacio icono="event-busy" texto="No hay controles agendados." />}
           {mascota.controles.map((control) => (
@@ -104,6 +133,7 @@ export default function PantallaAgenda() {
               titulo={control.titulo}
               detalle={`${formatearFechaCompleta(control.fecha)} · ${control.hora}${control.clinica ? ` · ${control.clinica}` : ''}`}
               atenuada={control.fecha < hoy}
+              alEditar={() => abrir('control', control.id)}
               alEliminar={() => confirmar('Eliminar control', `¿Eliminar "${control.titulo}"?`, 'Eliminar', () => eliminarControl(mascota.id, control.id))}
             />
           ))}
@@ -111,57 +141,65 @@ export default function PantallaAgenda() {
 
         {!esVeterinario && (
           <>
-        <View style={estilos.encabezadoSeccion}>
-          <TextoTema tipo="subtitulo" style={estilos.tituloSeccion}>Recordatorios</TextoTema>
-        </View>
-        <BotonPrincipal texto="Crear recordatorio" alPresionar={() => setFormulario('recordatorio')} />
-        <View style={estilos.lista}>
-          {mascota.recordatorios.length === 0 && <EstadoVacio icono="notifications-none" texto="No hay recordatorios creados." />}
-          {mascota.recordatorios.map((recordatorio) => (
-            <FilaRegistro
-              key={recordatorio.id}
-              icono="notifications"
-              color={Colores.marca.azul}
-              titulo={recordatorio.titulo}
-              detalle={`${formatearFechaCompleta(recordatorio.fecha)} · ${recordatorio.hora}`}
-              atenuada={recordatorio.fecha < hoy}
-              alEliminar={() => confirmar('Eliminar recordatorio', `¿Eliminar "${recordatorio.titulo}"?`, 'Eliminar', () => eliminarRecordatorio(mascota.id, recordatorio.id))}
-            />
-          ))}
-        </View>
+            <View style={estilos.encabezadoSeccion}>
+              <TextoTema tipo="subtitulo" style={estilos.tituloSeccion}>Recordatorios</TextoTema>
+            </View>
+            <BotonPrincipal texto="Crear recordatorio" alPresionar={() => abrir('recordatorio')} />
+            <View style={estilos.lista}>
+              {mascota.recordatorios.length === 0 && <EstadoVacio icono="notifications-none" texto="No hay recordatorios creados." />}
+              {mascota.recordatorios.map((recordatorio) => (
+                <FilaRegistro
+                  key={recordatorio.id}
+                  icono="notifications"
+                  color={Colores.marca.azul}
+                  titulo={recordatorio.titulo}
+                  detalle={`${formatearFechaCompleta(recordatorio.fecha)} · ${recordatorio.hora}`}
+                  atenuada={recordatorio.fecha < hoy}
+                  alEditar={() => abrir('recordatorio', recordatorio.id)}
+                  alEliminar={() => confirmar('Eliminar recordatorio', `¿Eliminar "${recordatorio.titulo}"?`, 'Eliminar', () => eliminarRecordatorio(mascota.id, recordatorio.id))}
+                />
+              ))}
+            </View>
           </>
         )}
       </ScrollView>
 
       {formulario === 'control' && (
         <ModalFormulario
-          titulo="Agendar control"
+          titulo={editandoId ? 'Editar control' : 'Agendar control'}
           subtitulo={`Control veterinario de ${mascota.nombre}. Recibirás un aviso a la hora indicada.`}
+          textoBoton={editandoId ? 'Guardar cambios' : 'Guardar'}
           campos={camposControl}
-          validar={validarFecha}
-          alCerrar={() => setFormulario('ninguno')}
+          validar={validarProgramacion(controlEditado)}
+          alCerrar={cerrar}
           alGuardar={(valores) => {
-            agregarControl(mascota.id, {
-              titulo: valores.titulo,
-              fecha: valores.fecha,
-              hora: valores.hora,
-              clinica: valores.clinica,
-            });
-            setFormulario('ninguno');
+            const datos = { titulo: valores.titulo, fecha: valores.fecha, hora: valores.hora, clinica: valores.clinica };
+            if (editandoId) {
+              actualizarControl(mascota.id, editandoId, datos);
+            } else {
+              agregarControl(mascota.id, datos);
+            }
+            cerrar();
           }}
         />
       )}
 
       {formulario === 'recordatorio' && (
         <ModalFormulario
-          titulo="Crear recordatorio"
+          titulo={editandoId ? 'Editar recordatorio' : 'Crear recordatorio'}
           subtitulo={`Aviso para ${mascota.nombre}`}
+          textoBoton={editandoId ? 'Guardar cambios' : 'Guardar'}
           campos={camposRecordatorio}
-          validar={validarFecha}
-          alCerrar={() => setFormulario('ninguno')}
+          validar={validarProgramacion(recordatorioEditado)}
+          alCerrar={cerrar}
           alGuardar={(valores) => {
-            agregarRecordatorio(mascota.id, { titulo: valores.titulo, fecha: valores.fecha, hora: valores.hora });
-            setFormulario('ninguno');
+            const datos = { titulo: valores.titulo, fecha: valores.fecha, hora: valores.hora };
+            if (editandoId) {
+              actualizarRecordatorio(mascota.id, editandoId, datos);
+            } else {
+              agregarRecordatorio(mascota.id, datos);
+            }
+            cerrar();
           }}
         />
       )}

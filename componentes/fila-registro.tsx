@@ -12,10 +12,11 @@ type Propiedades = {
   atenuada?: boolean;
   textoAccion?: string;
   alAccion?: () => void;
+  alEditar?: () => void;
   alEliminar: () => void;
 };
 
-export function FilaRegistro({ icono, color, titulo, detalle, atenuada = false, textoAccion, alAccion, alEliminar }: Propiedades) {
+export function FilaRegistro({ icono, color, titulo, detalle, atenuada = false, textoAccion, alAccion, alEditar, alEliminar }: Propiedades) {
   return (
     <View style={[estilos.fila, atenuada && estilos.atenuada]}>
       <View style={[estilos.icono, { backgroundColor: color }]}>
@@ -30,6 +31,11 @@ export function FilaRegistro({ icono, color, titulo, detalle, atenuada = false, 
           </Pressable>
         )}
       </View>
+      {alEditar && (
+        <Pressable accessibilityRole="button" accessibilityLabel={`Editar ${titulo}`} onPress={alEditar} style={estilos.eliminar}>
+          <MaterialIcons name="edit" size={20} color={Colores.marca.azul} />
+        </Pressable>
+      )}
       <Pressable accessibilityRole="button" accessibilityLabel={`Eliminar ${titulo}`} onPress={alEliminar} style={estilos.eliminar}>
         <MaterialIcons name="delete-outline" size={21} color={Colores.marca.apagado} />
       </Pressable>

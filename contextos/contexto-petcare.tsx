@@ -19,6 +19,7 @@ import type {
   Usuario,
 } from '@/tipos/modelos';
 import { traducirError } from '@/utilidades/errores';
+import { validarClave, validarCorreo, validarTextoConLetras } from '@/utilidades/validaciones';
 
 const TABLAS_OBSERVADAS = [
   'mascotas',
@@ -30,9 +31,6 @@ const TABLAS_OBSERVADAS = [
   'recordatorios',
   'acceso_veterinarios',
 ];
-
-const FORMATO_CORREO = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
-const CARACTERES_NO_ASCII = /[^\u0020-\u007E]/;
 
 function conLimite<T>(promesa: Promise<T>, milisegundos: number): Promise<T> {
   return Promise.race([
@@ -71,18 +69,25 @@ type ValorContextoPetcare = {
   renovarCodigoQr: (mascotaId: string) => Promise<void>;
   vincularPorCodigo: (codigo: string) => Promise<void>;
   quitarAcceso: (mascotaId: string, veterinarioId: string) => Promise<void>;
+  actualizarObservaciones: (mascotaId: string, texto: string) => Promise<void>;
   agregarVisita: (mascotaId: string, datos: DatosVisita) => Promise<void>;
+  actualizarVisita: (mascotaId: string, id: string, datos: DatosVisita) => Promise<void>;
   eliminarVisita: (mascotaId: string, id: string) => Promise<void>;
   agregarVacuna: (mascotaId: string, datos: DatosVacuna) => Promise<void>;
+  actualizarVacuna: (mascotaId: string, id: string, datos: DatosVacuna) => Promise<void>;
   eliminarVacuna: (mascotaId: string, id: string) => Promise<void>;
   agregarIndicador: (mascotaId: string, datos: DatosIndicador) => Promise<void>;
+  actualizarIndicador: (mascotaId: string, id: string, datos: DatosIndicador) => Promise<void>;
   eliminarIndicador: (mascotaId: string, id: string) => Promise<void>;
   agregarMedicamento: (mascotaId: string, datos: DatosMedicamento) => Promise<void>;
+  actualizarMedicamento: (mascotaId: string, id: string, datos: DatosMedicamento) => Promise<void>;
   alternarMedicamento: (mascotaId: string, id: string) => Promise<void>;
   eliminarMedicamento: (mascotaId: string, id: string) => Promise<void>;
   agregarControl: (mascotaId: string, datos: DatosControl) => Promise<void>;
+  actualizarControl: (mascotaId: string, id: string, datos: DatosControl) => Promise<void>;
   eliminarControl: (mascotaId: string, id: string) => Promise<void>;
   agregarRecordatorio: (mascotaId: string, datos: DatosRecordatorio) => Promise<void>;
+  actualizarRecordatorio: (mascotaId: string, id: string, datos: DatosRecordatorio) => Promise<void>;
   eliminarRecordatorio: (mascotaId: string, id: string) => Promise<void>;
 };
 
@@ -155,8 +160,11 @@ export function ProveedorPetcare({ children }: { children: ReactNode }) {
           await conLimite(abrirSesion(data.session), 15000);
         }
       } catch (fallo) {
-        const motivo = fallo instanceof Error ? traducirError(fallo.message) : 'No se pudo restaurar la sesión.';
-        setErrorInicio(motivo);
+        if (fallo instanceof Error && fallo.message === repositorio.PERFIL_NO_ENCONTRADO) {
+          await supabase.auth.signOut();
+        } else {
+          setErrorInicio(fallo instanceof Error ? traducirError(fallo.message) : 'No se pudo restaurar la sesión.');
+        }
         limpiar();
       } finally {
         clearTimeout(salvavidas);
@@ -210,20 +218,13 @@ export function ProveedorPetcare({ children }: { children: ReactNode }) {
   };
 
   const registrarse = async (nombre: string, correo: string, clave: string, rol: Rol, clinica: string) => {
-    if (!nombre.trim()) {
-      throw new Error('Escribe tu nombre.');
-    }
-    if (rol === 'veterinario' && !clinica.trim()) {
-      throw new Error('Indica el nombre de tu clínica o consulta.');
-    }
-    if (CARACTERES_NO_ASCII.test(correo)) {
-      throw new Error('El correo no puede tener tildes ni la letra ñ. Por ejemplo: duenomascota@gmail.com');
-    }
-    if (!FORMATO_CORREO.test(correo.trim())) {
-      throw new Error('Ingresa un correo válido, por ejemplo nombre@gmail.com.');
-    }
-    if (clave.length < 6) {
-      throw new Error('La contraseña debe tener al menos 6 caracteres.');
+    const problema =
+      validarTextoConLetras(nombre, 'Nombre', 2, 60) ??
+      (rol === 'veterinario' ? validarTextoConLetras(clinica, 'Clínica o consulta', 2, 60) : null) ??
+      validarCorreo(correo) ??
+      validarClave(clave);
+    if (problema) {
+      throw new Error(problema);
     }
 
     const { data, error } = await supabase.auth.signUp({
@@ -312,6 +313,27 @@ export function ProveedorPetcare({ children }: { children: ReactNode }) {
   const agregarVisita = (mascotaId: string, datos: DatosVisita) =>
     intentar(() => repositorio.agregarVisita(mascotaId, datos));
 
+  const actualizarObservaciones = (mascotaId: string, texto: string) =>
+    intentar(() => repositorio.actualizarObservaciones(mascotaId, texto));
+
+  const actualizarVisita = (_mascotaId: string, id: string, datos: DatosVisita) =>
+    intentar(() => repositorio.actualizarVisita(id, datos));
+
+  const actualizarVacuna = (_mascotaId: string, id: string, datos: DatosVacuna) =>
+    intentar(() => repositorio.actualizarVacuna(id, datos), true);
+
+  const actualizarIndicador = (_mascotaId: string, id: string, datos: DatosIndicador) =>
+    intentar(() => repositorio.actualizarIndicador(id, datos));
+
+  const actualizarMedicamento = (_mascotaId: string, id: string, datos: DatosMedicamento) =>
+    intentar(() => repositorio.actualizarMedicamento(id, datos), true);
+
+  const actualizarControl = (_mascotaId: string, id: string, datos: DatosControl) =>
+    intentar(() => repositorio.actualizarControl(id, datos), true);
+
+  const actualizarRecordatorio = (_mascotaId: string, id: string, datos: DatosRecordatorio) =>
+    intentar(() => repositorio.actualizarRecordatorio(id, datos), true);
+
   const eliminarVisita = (_mascotaId: string, id: string) =>
     intentar(() => repositorio.eliminarRegistro('visitas', id));
 
@@ -370,18 +392,25 @@ export function ProveedorPetcare({ children }: { children: ReactNode }) {
     renovarCodigoQr,
     vincularPorCodigo,
     quitarAcceso,
+    actualizarObservaciones,
     agregarVisita,
+    actualizarVisita,
     eliminarVisita,
     agregarVacuna,
+    actualizarVacuna,
     eliminarVacuna,
     agregarIndicador,
+    actualizarIndicador,
     eliminarIndicador,
     agregarMedicamento,
+    actualizarMedicamento,
     alternarMedicamento,
     eliminarMedicamento,
     agregarControl,
+    actualizarControl,
     eliminarControl,
     agregarRecordatorio,
+    actualizarRecordatorio,
     eliminarRecordatorio,
   };
 

@@ -11,6 +11,7 @@ import { TextoTema } from '@/componentes/texto-tema';
 import { Colores } from '@/constantes/tema';
 import { usarPetcare } from '@/contextos/contexto-petcare';
 import { traducirError } from '@/utilidades/errores';
+import { FORMATO_CODIGO_QR } from '@/utilidades/validaciones';
 
 export default function PantallaEscanear() {
   const router = useRouter();
@@ -27,8 +28,14 @@ export default function PantallaEscanear() {
     }
     setProcesando(true);
     setMensaje('');
+    const codigo = texto.replace(PREFIJO_QR, '').trim();
+    if (!FORMATO_CODIGO_QR.test(codigo)) {
+      setMensaje('El código no tiene el formato correcto: son 32 caracteres entre números y letras de la a a la f.');
+      setTimeout(() => setProcesando(false), 2500);
+      return;
+    }
     try {
-      await vincularPorCodigo(texto.replace(PREFIJO_QR, '').trim());
+      await vincularPorCodigo(codigo);
       router.back();
     } catch (fallo) {
       setMensaje(fallo instanceof Error ? traducirError(fallo.message) : 'No se pudo vincular la mascota.');

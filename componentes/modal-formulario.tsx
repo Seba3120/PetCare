@@ -7,6 +7,7 @@ import { SelectorOpciones } from '@/componentes/selector-opciones';
 import { TextoTema } from '@/componentes/texto-tema';
 import { Colores } from '@/constantes/tema';
 import { dmyAIso, fechaValida, hoyIso, isoADmy } from '@/utilidades/fechas';
+import { CONTIENE_LETRAS } from '@/utilidades/validaciones';
 
 export type CampoFormulario = {
   clave: string;
@@ -20,6 +21,8 @@ export type CampoFormulario = {
   maximo?: number;
   noFutura?: boolean;
   largoMaximo?: number;
+  conLetras?: boolean;
+  multilinea?: boolean;
 };
 
 type Propiedades = {
@@ -61,6 +64,9 @@ function validarCampo(campo: CampoFormulario, valor: string): string | null {
   if (campo.largoMaximo && texto.length > campo.largoMaximo) {
     return `${campo.etiqueta}: máximo ${campo.largoMaximo} caracteres.`;
   }
+  if (campo.conLetras && !CONTIENE_LETRAS.test(texto)) {
+    return `${campo.etiqueta}: debe contener letras, no solo números o símbolos.`;
+  }
   if (campo.tipo === 'fecha') {
     const fechaIso = dmyAIso(texto);
     if (!fechaValida(fechaIso)) {
@@ -74,8 +80,11 @@ function validarCampo(campo: CampoFormulario, valor: string): string | null {
     return `${campo.etiqueta}: usa el formato HH:MM, por ejemplo 08:30.`;
   }
   if (campo.tipo === 'numero') {
+    if (!/^\d+([.,]\d{1,2})?$/.test(texto)) {
+      return `${campo.etiqueta}: ingresa un número válido, por ejemplo 12,5.`;
+    }
     const numero = Number(texto.replace(',', '.'));
-    if (!Number.isFinite(numero) || numero <= 0) {
+    if (numero <= 0) {
       return `${campo.etiqueta}: ingresa un número mayor a 0.`;
     }
     if (campo.minimo !== undefined && numero < campo.minimo) {
@@ -184,6 +193,8 @@ export function ModalFormulario({
             onChangeText={(texto) => cambiarValor(campo, texto)}
             placeholder={placeholderDe(campo)}
             maxLength={campo.largoMaximo}
+            multiline={campo.multilinea}
+            style={campo.multilinea ? { minHeight: 120, textAlignVertical: 'top' } : undefined}
             keyboardType={
               campo.tipo === 'numero' ? 'decimal-pad' : campo.tipo === 'fecha' || campo.tipo === 'hora' ? 'number-pad' : 'default'
             }
